@@ -2,10 +2,12 @@ local Base = require('render-markdown.render.base')
 local iter = require('render-markdown.lib.iter')
 local log = require('render-markdown.core.log')
 local str = require('render-markdown.lib.str')
+local env = require('render-markdown.lib.env')
 
 ---@class render.md.table.Data
 ---@field delim render.md.table.DelimRow
 ---@field rows render.md.table.Row[]
+---@field margin number
 
 ---@class render.md.table.DelimRow
 ---@field node render.md.Node
@@ -113,9 +115,21 @@ function Render:setup()
         end
     end
 
-    self.data = { delim = delim, rows = rows }
+    local margin = self:get_number(self.config.left_margin)
+    self.data = { delim = delim, rows = rows, margin = margin }
 
     return true
+end
+
+---@private
+---@param value render.md.paragraph.Number
+---@return number
+function Render:get_number(value)
+    if type(value) == 'function' then
+        return value({ text = self.node.text })
+    else
+        return value
+    end
 end
 
 ---@private
@@ -223,6 +237,10 @@ end
 
 ---@protected
 function Render:run()
+    local widths = self.node:widths()
+    local width = math.max(vim.fn.max(widths), self.config.min_width)
+    local margin = env.win.percent(self.context.win, self.data.margin, width)
+    self:padding(self.node.start_row, self.node.end_row - 1, margin)
     self:delimiter()
     for _, row in ipairs(self.data.rows) do
         self:row(row)
@@ -402,8 +420,11 @@ function Render:border()
     ---@param chars { [1]: string, [2]: string, [3]: string }
     local function table_border(node, above, chars)
         local text = chars[1] .. table.concat(sections, chars[2]) .. chars[3]
+        local widths = self.node:widths()
+        local width = math.max(vim.fn.max(widths), self.config.min_width)
+        local margin = env.win.percent(self.context.win, self.data.margin, width)
         local highlight = above and self.config.head or self.config.row
-        local line = self:line():pad(spaces):text(text, highlight)
+        local line = self:line():pad(spaces + margin):text(text, highlight)
 
         local virtual = self.config.border_virtual
         local row, target = node:line(above and 'above' or 'below', 1)
@@ -425,6 +446,24 @@ function Render:border()
     table_border(first_node, true, { border[1], border[2], border[3] })
     if #rows > 1 then
         table_border(last_node, false, { border[7], border[8], border[9] })
+    end
+end
+
+---@private
+---@param start_row integer
+---@param end_row integer
+---@param amount integer
+function Render:padding(start_row, end_row, amount)
+    local line = self:line():pad(amount):get()
+    if #line == 0 then
+        return
+    end
+    for row = start_row, end_row do
+        self.marks:add(self.config, false, row, 0, {
+            priority = 100,
+            virt_text = line,
+            virt_text_pos = 'inline',
+        })
     end
 end
 

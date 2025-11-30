@@ -1551,6 +1551,7 @@ M.pipe_table = {}
 ---@field row string
 ---@field filler string
 ---@field style render.md.table.Style
+---@field left_margin number
 
 ---@class (exact) render.md.table.cell.Context
 ---@field node TSNode
@@ -1631,6 +1632,7 @@ M.pipe_table.default = {
     -- | normal | { border_enabled = false } |
     -- | full   | uses all default values    |
     style = 'full',
+    left_margin = 0,
 }
 
 ---@return render.md.Schema
@@ -1649,6 +1651,7 @@ function M.pipe_table.schema()
         row = { type = 'string' },
         filler = { type = 'string' },
         style = { enum = M.pipe_table.style },
+        left_margin = { type = 'number' },
     })
 end
 
@@ -1659,6 +1662,8 @@ M.quote = {}
 ---@field icon string|string[]
 ---@field repeat_linebreak boolean
 ---@field highlight string|string[]
+---@field left_margin number
+---@field min_width number
 
 ---@type render.md.quote.Config
 M.quote.default = {
@@ -1687,6 +1692,8 @@ M.quote.default = {
         'RenderMarkdownQuote5',
         'RenderMarkdownQuote6',
     },
+    left_margin = 0,
+    min_width = 0
 }
 
 ---@return render.md.Schema
@@ -1699,6 +1706,8 @@ function M.quote.schema()
         highlight = {
             union = { { list = { type = 'string' } }, { type = 'string' } },
         },
+        left_margin = { type = 'number'},
+        min_width = { type = 'number'}
     })
 end
 

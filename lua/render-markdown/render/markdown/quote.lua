@@ -2,6 +2,7 @@ local Base = require('render-markdown.render.base')
 local list = require('render-markdown.lib.list')
 local str = require('render-markdown.lib.str')
 local ts = require('render-markdown.core.ts')
+local env = require('render-markdown.lib.env')
 
 ---@class render.md.quote.Data
 ---@field callout? render.md.request.callout.Value
@@ -9,6 +10,7 @@ local ts = require('render-markdown.core.ts')
 ---@field icon string
 ---@field highlight string
 ---@field repeat_linebreak? boolean
+---@field margin number
 
 ---@class render.md.render.Quote: render.md.Render
 ---@field private config render.md.quote.Config
@@ -28,20 +30,55 @@ function Render:setup()
     local config = callout and callout.config
     local icon = config and config.quote_icon or self.config.icon
     local highlight = config and config.highlight or self.config.highlight
+    local margin = self:get_number(self.config.left_margin)
     self.data = {
         callout = callout,
         level = level,
         icon = assert(list.cycle(icon, level)),
         highlight = assert(list.cycle(highlight, level)),
         repeat_linebreak = self.config.repeat_linebreak or nil,
+        margin = margin
     }
     return true
 end
 
+---@private
+---@param value render.md.paragraph.Number
+---@return number
+function Render:get_number(value)
+    if type(value) == 'function' then
+        return value({ text = self.node.text })
+    else
+        return value
+    end
+end
+
 ---@protected
 function Render:run()
+    local widths = self.node:widths()
+    local width = math.max(vim.fn.max(widths), self.config.min_width)
+    local margin = env.win.percent(self.context.win, self.data.margin, width)
+    self:padding(self.node.start_row, self.node.end_row - 1, margin)
     self:callout()
     self:markers()
+end
+
+---@private
+---@param start_row integer
+---@param end_row integer
+---@param amount integer
+function Render:padding(start_row, end_row, amount)
+    local line = self:line():pad(amount):get()
+    if #line == 0 then
+        return
+    end
+    for row = start_row, end_row do
+        self.marks:add(self.config, false, row, 0, {
+            priority = 100,
+            virt_text = line,
+            virt_text_pos = 'inline',
+        })
+    end
 end
 
 ---@private
